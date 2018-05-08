@@ -1,7 +1,3 @@
-Exploiting x86 stack based buffer overflows
-					by c0ntex | c0ntexb@gmail.com
-					    www.open-security.org
-				--------------------------------------------------------------
 
 This document shows how to abuse destroyed NULL terminators to an attackers advantage by finding
 and controlling functional execution of calls that fail to do any type of safe bounds checking.
