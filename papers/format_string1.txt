@@ -1,15 +1,3 @@
-How to develop robust x86  stashed format string exploit code 
-			       by c0ntex | c0ntex[at]open-security.org
-					www.open-security.org
-		--------------------------------------------------------------
-
-*unfinished*
-
-
-
-Also see http://open-security.org/texts/7 - Further advances in format string exploitation
-
-
 
 Format string bugs are a method of abusing incorrect usage of the format functions like printf,
 sprintf, snprintf, fprintf, vfprintf and the likes. When these fucntions are called they require
