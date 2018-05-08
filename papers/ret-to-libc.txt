@@ -1,8 +1,3 @@
-Bypassing non-executable-stack during exploitation using return-to-libc
-				by c0ntex | c0ntex[at]open-security.org
-					www.open-security.org
-		-----------------------------------------------------------------------
-
 
 Returning to libc is a method of exploiting a buffer overflow on a system that has a non-executable stack, it is very
 similar to a standard buffer overflow, in that the return address is changed to point at a new location that we can
