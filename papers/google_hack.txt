@@ -1,6 +1,3 @@
-Abusing the internet with popular search engine technologies
-                                    by c0ntex | c0ntexb[at]gmail.com
-                ------------------------------------------------------------------------------------------
 
 When you think of a search engine, you probably conjure up an image of the handy, html based site that can
 help you find those RFC's, wiring diagrams, soft-warez, serial keys or questionable images, depending on your
