@@ -1,8 +1,3 @@
-Further advances in to exploiting vulnerable format string bugs
-                                by c0ntex | c0ntex[at]open-security.org
-                                         www.open-security.org
-                    ---------------------------------------------------------------
-
 
 Format string bugs are a method of abusing incorrect usage of the format functions like printf, sprintf,
 snprintf, fprintf, vfprintf and the likes. When these functions are called they require that a version
