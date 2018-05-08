@@ -1,0 +1,167 @@
+				Basic binary reconstruction from assembler
+				      by c0ntex | c0ntexb@gmail.com
+				 	  www.open-security.org
+				------------------------------------------
+
+
+This paper will provide a quick overview of how to perform reverse engineering against a simple .exe binary.
+By using the assembly of a binary, it can be trivial to gain a basic understanding of the executable, which
+will allow for the source code to be retrieved almost exactly as the developer designed it.
+
+In this example we are only using a small program and as such it is easy to do, on a larger exe it would take
+much longer and a more rigerous review of the assembler would be required.
+
+
+// IDA assembler dump
+; seh.exe
+.text:0040102B                 push    ebp
+.text:0040102C                 mov     ebp, esp		
+.text:0040102E                 sub     esp, 0Ch
+.text:00401031                 cmp     [ebp+argc], 2
+.text:00401035                 jz      short loc_40104B
+.text:00401037                 push    offset aUsageSeh_exeBu ; "Usage: seh.exe <buffer>\n"
+.text:0040103C                 call    _printf
+.text:00401041                 add     esp, 4
+.text:00401044                 push    1               ; int
+.text:00401046                 call    _exit
+
+.text:0040104B loc_40104B:                             ; CODE XREF: _main+Aj 
+.text:0040104B                 lea     eax, [ebp+var_C]  
+.text:0040104E                 push    eax             ; char *  
+.text:0040104F                 mov     ecx, [ebp+argv]  
+.text:00401052                 push    ecx             ; int  
+.text:00401053                 call    sub_401000  
+.text:00401058                 add     esp, 8  
+.text:0040105B                 xor     eax, eax  
+.text:0040105D                 mov     esp, ebp 
+.text:0040105F                 pop     ebp  
+.text:00401060                 retn  
+.text:00401060 _main           endp 
+
+.text:00401000 sub_401000      proc near               ; CODE XREF: _main+284p
+.text:00401000
+.text:00401000 arg_0           = dword ptr  8
+.text:00401000 arg_4           = dword ptr  0Ch
+.text:00401000
+.text:00401000                 push    ebp
+.text:00401001                 mov     ebp, esp
+.text:00401003                 mov     eax, [ebp+arg_0]
+.text:00401006                 mov     ecx, [eax+4]
+.text:00401009                 push    ecx             ; char *
+.text:0040100A                 mov     edx, [ebp+arg_4]
+.text:0040100D                 push    edx             ; char *
+.text:0040100E                 call    _strcpy
+.text:00401013                 add     esp, 8
+.text:00401016                 mov     eax, [ebp+arg_4]
+.text:00401019                 push    eax
+.text:0040101A                 push    offset aMySehf00IsBett ; "\nMy sehf00 is better than your sehf00 -"...
+.text:0040101F                 call    _printf
+.text:00401024                 add     esp, 8
+.text:00401027                 xor     eax, eax
+.text:00401029                 pop     ebp
+.text:0040102A                 retn
+.text:0040102A sub_401000      endp
+
+
+So from the above assembler, we can start to replay the instructions into the equivilent c language and have
+a fairly good, though not exact, representation of the c *in this case* code used to build the executable.
+
+If there is a piece of code that you are unsure what it's function is, you can write a test c file and run
+it through IDA to verify the instructions against what you thought / expected to see.
+
+Dumping the first function only to show how it is done:
+
+
+push    ebp							;Back up original stack pointer
+mov     ebp, esp						;            procedure prologue
+sub     esp, 0Ch						;Allocate 12 bytes of space
+cmp     [ebp+argc], 2						;Verify there are 2 arguments passed
+jz      short loc_40104B					;if there are, jump to loc_40104B
+push    offset aUsageSeh_exeBu ; "Usage: seh.exe <buffer>\n"	;if not, push error message on stack
+call    _printf							;print the error message
+add     esp, 4							;add 4 to esp
+push    1               ; int					;push exit value
+call    _exit							;exit
+
+
+probably giving us:
+
+
+int main(int argc, char **argv)
+{
+ if(argc != 2) {
+   printf("Usage: seh.exe <buffer>\n");
+   _exit(1);
+  }
+something()
+}
+
+
+Do this with each function until we have sourced the entire image. Performing this type of resolution on all
+the assembler will provide something like the following:
+
+
+int main(int argc, char **argv)
+{
+        char varc[12];
+        if(argc != 2) {
+                printf("Usage: seh.exe <buffer>\n");
+                _exit(1);
+        }
+        locfunc(argv, varc);
+        return(0);
+}
+
+locfunc(char **argv, char *varc);
+        strcpy(varc, argv[1]);
+        printf("My sehf00 is better than your sehf00\n");
+        return(0);
+}
+
+
+As you can see we have a fairly complete piece of code, the actual program below is the initial code used to
+compile seh.exe and it is obvious that we were real close to the correct syntax. This just shows that even in
+a situation when you do not have the applications source to hand, it is still fairly trivial to make by using
+a dissassembler to see exactly how the program fits together.
+
+This can be an important skill to have if you want to examine or modify an executable in some manner when you
+do not have source code. Say that this application was a piece of malware or a worm that you found on your
+system. It would be useful to understand how it worked and perhaps how it got there. By reverse engineering
+it, functionality can become apparent straight away and allow you do determine how the program works and what
+it does.
+
+
+// Original seh.exe source
+#include<stdio.h>
+#include<string.h>
+#include<windows.h>
+
+int blah(char *argv[], char *sehheh)
+{
+        strcpy(sehheh, argv[1]);
+ 
+        printf("\nMy sehf00 is better than your sehf00 -> [%s]\n", sehheh);
+
+        return(0);
+}
+
+int main(int argc, char *argv[]){
+
+        char sehheh[12];
+
+        if (argc != 2){
+                printf("Usage: myseh.exe <buffer>\n");
+                exit(1);
+        }
+
+        blah(argv, sehheh);
+
+        return(0);
+}
+
+
+I hope this short paper has been useful in showing how easy it is to perform some basic reverse engineering
+of a compiled executable.
+
+
+EOF
