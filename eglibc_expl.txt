@@ -1,11 +1,3 @@
-# Exploit Title: eGlibc Signedness Vulnerability
-# Date: November 2011
-# Exploit Author: c0ntex
-# Vendor Homepage: http://www.eglibc.org
-# Software Link: http://www.eglibc.org/home
-# Version: eGlibc supplied by Ubuntu 10.4 LTS
-# Tested on: Ubuntu 10.4 LTS
-# CVE : CVE-2011-2702
 
 A delicious, yet slightly cold banquette prepared on the (jump)table
 
