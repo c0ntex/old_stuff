@@ -1,0 +1,1 @@
+These papers were written in 2003 and 2004 to teach myself how to exploit bugs in applications so that arbitrary code could be executed. The purpose was out of interest and for lulz, mainly to take over peoples IRC channels, steal their botnets and have cool psybnc connects while idling.
